@@ -2,7 +2,6 @@ from flask import Flask, request, session, redirect, url_for, jsonify, render_te
 import datetime
 import os
 import textwrap
-import sys
 
 app = Flask(__name__)
 app.secret_key = "super-secret-key"
@@ -10,25 +9,35 @@ app.secret_key = "super-secret-key"
 USERS = {}
 EVENT_END_TIME = datetime.datetime.now() + datetime.timedelta(hours=24)
 
-# ---------- DÜZELTİLMİŞ YARDIMCI FONKSİYONLAR ----------
+# ============================================================
+# 1) YARDIMCI FONKSIYONLAR (Hepsi burada, eksiksiz)
+# ============================================================
+
+def is_logged_in():
+    """Kullanıcının giriş yapıp yapmadığını kontrol eder."""
+    return "user" in session
+
+def current_user():
+    """Giriş yapmış kullanıcının verisini döner."""
+    if not is_logged_in():
+        return None
+    return USERS.get(session["user"])
+
 def get_client_ip():
     """
     Vercel (ve diğer CDN/Proxy) ortamlarında gerçek client IP'sini bulur.
     Önce X-Forwarded-For (en soldaki IP), sonra X-Real-Ip, en son remote_addr.
     """
-    # X-Forwarded-For formatı genellikle: client, proxy1, proxy2
     xff = request.headers.get("X-Forwarded-For")
     if xff:
         ip = xff.split(",")[0].strip()
         if ip:
             return ip
     
-    # Vercel bazen X-Real-Ip gönderir
     xri = request.headers.get("X-Real-Ip")
     if xri:
         return xri.strip()
     
-    # Son çare (Vercel'de genelde 127.0.0.1 veya internal IP olur)
     return request.remote_addr or "unknown"
 
 def get_user_agent_string():
@@ -55,11 +64,14 @@ def log_visit(event, details=""):
         device = detect_device(ua)
         ts = datetime.datetime.now().isoformat(timespec="seconds")
         line = f"[{ts}] {event} | IP={ip} | Cihaz={device} | UA={ua[:80]} | {details}"
-        print(line, flush=True)  # flush=True Vercel'de logların hemen düşmesini sağlar
+        print(line, flush=True)
     except Exception as e:
         print(f"[LOG_ERROR] {e}", flush=True)
 
-# ---------- LAYOUT ----------
+# ============================================================
+# 2) HTML LAYOUT
+# ============================================================
+
 def layout(title, body_html, user=None):
     user_html = ""
     if user:
@@ -139,7 +151,10 @@ def layout(title, body_html, user=None):
     </html>
     """)
 
-# ---------- SAYFALAR ----------
+# ============================================================
+# 3) SAYFALAR
+# ============================================================
+
 @app.route("/")
 def home():
     user = session.get("user")
@@ -438,7 +453,10 @@ def support_submit():
     log_visit("DESTEK_BILETI", f"Kullanici: {user} | Konu: {subject[:50]} | Uzunluk: {len(message)}")
     return jsonify({"success": True, "message": "Biletiniz alındı, ekibi inceler."})
 
-# ---------- AUTH ----------
+# ============================================================
+# 4) AUTH (Giriş / Kayıt / Çıkış)
+# ============================================================
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     msg = ""
@@ -525,7 +543,10 @@ def logout():
     session.pop("user", None)
     return redirect(url_for("home"))
 
-# ---------- Event + Konum API ----------
+# ============================================================
+# 5) API ENDPOINTLER (Event + Konum)
+# ============================================================
+
 @app.route("/join-event", methods=["POST"])
 def join_event():
     if not is_logged_in():
@@ -550,6 +571,10 @@ def log_location():
     device = detect_device(ua)
     log_visit("GPS_KONUM", f"Kullanici: {session.get('user')} | IP={ip} | Cihaz={device} | Lat={lat} | Lon={lon}")
     return jsonify({"success": True, "message": "Konum kaydedildi."})
+
+# ============================================================
+# 6) SUNUCU BAŞLATMA
+# ============================================================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
