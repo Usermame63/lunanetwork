@@ -1,68 +1,71 @@
-# app.py
 from flask import Flask, request, session, redirect, url_for, jsonify, render_template_string
 import datetime
 import os
 import textwrap
+import sys
 
 app = Flask(__name__)
-app.secret_key = "super-secret-key"   # demo için
+app.secret_key = "super-secret-key"
 
-# Basit veri depolama (RAM)
-USERS = {}          # {username: {"password": "...", "credits": int, "email": ""}}
+USERS = {}
 EVENT_END_TIME = datetime.datetime.now() + datetime.timedelta(hours=24)
 
-# ---------- Yardımcı fonksiyonlar ----------
-def is_logged_in():
-    return "user" in session
-
-def current_user():
-    if not is_logged_in():
-        return None
-    return USERS.get(session["user"])
-
+# ---------- DÜZELTİLMİŞ YARDIMCI FONKSİYONLAR ----------
 def get_client_ip():
-    """X-Forwarded-For veya remote_addr üzerinden gerçek IP'yi çıkar."""
-    if request.headers.getlist("X-Forwarded-For"):
-        ip = request.headers.getlist("X-Forwarded-For")[0].split(",")[0].strip()
-    else:
-        ip = request.remote_addr
-    return ip
+    """
+    Vercel (ve diğer CDN/Proxy) ortamlarında gerçek client IP'sini bulur.
+    Önce X-Forwarded-For (en soldaki IP), sonra X-Real-Ip, en son remote_addr.
+    """
+    # X-Forwarded-For formatı genellikle: client, proxy1, proxy2
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        ip = xff.split(",")[0].strip()
+        if ip:
+            return ip
+    
+    # Vercel bazen X-Real-Ip gönderir
+    xri = request.headers.get("X-Real-Ip")
+    if xri:
+        return xri.strip()
+    
+    # Son çare (Vercel'de genelde 127.0.0.1 veya internal IP olur)
+    return request.remote_addr or "unknown"
 
-def detect_device():
-    """User-Agent bazlı cihaz tipi ve OS tespiti."""
-    ua = request.user_agent.string.lower()
-    # Basit tespit (daha hassas kütüphane kullanılabilir)
-    if "mobile" in ua or "android" in ua or "iphone" in ua or "ipad" in ua:
+def get_user_agent_string():
+    """User-Agent header'ını güvenli şekilde alır."""
+    return request.headers.get("User-Agent", "Unknown")
+
+def detect_device(ua_string):
+    """User-Agent stringinden cihaz tipi tespiti."""
+    ua = ua_string.lower()
+    if "mobile" in ua or "android" in ua or "iphone" in ua:
         if "ipad" in ua or "tablet" in ua:
-            return "Tablet", ua
-        return "Mobile", ua
-    return "PC", ua
+            return "Tablet"
+        return "Mobile"
+    return "PC"
 
-def log_visit(event, details):
-    """Ziyaret bilgilerini konsola basar (gerçek sistemde dosya/DB kullanılabilir)."""
-    ts = datetime.datetime.now().isoformat(timespec='seconds')
-    ip = get_client_ip()
-    device_type, ua = detect_device()
-    line = f"[{ts}] {event} | IP: {ip} | Cihaz: {device_type} | UA: {ua[:60]}... | {details}"
-    print(line)
+def log_visit(event, details=""):
+    """
+    Ziyaret bilgilerini konsola basar.
+    try/except ile sarmalanmıştır; loglama hatası sayfayı çökertmez.
+    """
+    try:
+        ip = get_client_ip()
+        ua = get_user_agent_string()
+        device = detect_device(ua)
+        ts = datetime.datetime.now().isoformat(timespec="seconds")
+        line = f"[{ts}] {event} | IP={ip} | Cihaz={device} | UA={ua[:80]} | {details}"
+        print(line, flush=True)  # flush=True Vercel'de logların hemen düşmesini sağlar
+    except Exception as e:
+        print(f"[LOG_ERROR] {e}", flush=True)
 
-# ---------- Layout (tek şablon) ----------
+# ---------- LAYOUT ----------
 def layout(title, body_html, user=None):
     user_html = ""
     if user:
-        user_html = f"""
-        <div class="user-info">
-            <span>👤 {user}</span>
-            <a href="/logout" class="btn small">Çıkış</a>
-        </div>
-        """
+        user_html = f'<div class="user-info"><span>👤 {user}</span><a href="/logout" class="btn small">Çıkış</a></div>'
     else:
-        user_html = """
-        <div class="user-info">
-            <a href="/login" class="btn small">Giriş</a>
-            <a href="/register" class="btn small secondary">Kayıt Ol</a>
-        </div>
-        """
+        user_html = '<div class="user-info"><a href="/login" class="btn small">Giriş</a><a href="/register" class="btn small secondary">Kayıt Ol</a></div>'
 
     return textwrap.dedent(f"""
     <!DOCTYPE html>
@@ -73,26 +76,9 @@ def layout(title, body_html, user=None):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-            body {{
-                font-family: Arial, sans-serif;
-                background: #050810;
-                color: #f5f5f5;
-                min-height: 100vh;
-            }}
+            body {{ font-family: Arial, sans-serif; background: #050810; color: #f5f5f5; min-height: 100vh; }}
             a {{ color: inherit; text-decoration: none; }}
-
-            .navbar {{
-                width: 100%;
-                background: linear-gradient(90deg,#111827,#1f2937);
-                padding: 12px 6%;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                border-bottom: 1px solid #111827;
-                position: sticky;
-                top: 0;
-                z-index: 50;
-            }}
+            .navbar {{ width: 100%; background: linear-gradient(90deg,#111827,#1f2937); padding: 12px 6%; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #111827; position: sticky; top: 0; z-index: 50; }}
             .logo {{ font-weight:700; font-size:20px; color:#22c55e; }}
             .nav-links a {{ margin:0 10px; font-size:14px; opacity:0.9; }}
             .nav-links a:hover {{ color:#22c55e; }}
@@ -101,37 +87,15 @@ def layout(title, body_html, user=None):
             .btn.small {{ padding:6px 10px; font-size:12px; }}
             .btn.secondary {{ background:transparent; border:1px solid #22c55e; color:#22c55e; }}
             .btn.secondary:hover {{ background:#22c55e; color:#000; }}
-            .btn.disabled {{ opacity:0.5; cursor:not-allowed; }}
-
             .container {{ max-width:1100px; margin:30px auto; padding:0 6%; }}
             .grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; }}
-            .card {{
-                background:radial-gradient(circle at top, #111827, #020617);
-                border-radius:14px; border:1px solid #1f2937;
-                padding:18px 18px 20px;
-                box-shadow:0 10px 30px rgba(0,0,0,0.7);
-            }}
+            .card {{ background:radial-gradient(circle at top, #111827, #020617); border-radius:14px; border:1px solid #1f2937; padding:18px 18px 20px; box-shadow:0 10px 30px rgba(0,0,0,0.7); }}
             .card h2, .card h3 {{ margin-bottom:10px; }}
-            .badge {{
-                display:inline-block; padding:4px 10px; border-radius:999px;
-                font-size:11px; background:rgba(34,197,94,0.16); color:#bbf7d0;
-                border:1px solid #22c55e;
-            }}
+            .badge {{ display:inline-block; padding:4px 10px; border-radius:999px; font-size:11px; background:rgba(34,197,94,0.16); color:#bbf7d0; border:1px solid #22c55e; }}
             .muted {{ color:#9ca3af; font-size:13px; }}
             .hero {{ display:grid; grid-template-columns:minmax(0,2.2fr) minmax(0,2fr); gap:24px; align-items:center; }}
-            .hero-img {{
-                background-image:url('https://images.pexels.com/photos/7770022/pexels-photo-7770022.jpeg');
-                background-size:cover; background-position:center;
-                border-radius:18px; min-height:220px;
-                box-shadow:0 15px 40px rgba(0,0,0,0.8);
-                position:relative; overflow:hidden;
-            }}
-            .hero-img::after {{
-                content:"Survival • Skyblock • KitPvP";
-                position:absolute; left:14px; bottom:14px; font-size:12px;
-                padding:6px 10px; border-radius:999px;
-                background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.7);
-            }}
+            .hero-img {{ background-image:url('https://images.pexels.com/photos/7770022/pexels-photo-7770022.jpeg'); background-size:cover; background-position:center; border-radius:18px; min-height:220px; box-shadow:0 15px 40px rgba(0,0,0,0.8); position:relative; overflow:hidden; }}
+            .hero-img::after {{ content:"Survival • Skyblock • KitPvP"; position:absolute; left:14px; bottom:14px; font-size:12px; padding:6px 10px; border-radius:999px; background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.7); }}
             .hero-title {{ font-size:26px; margin-bottom:10px; }}
             .hero-sub {{ font-size:14px; color:#e5e7eb; margin-bottom:16px; }}
             .credits-table {{ width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }}
@@ -141,9 +105,8 @@ def layout(title, body_html, user=None):
             .event-timer {{ font-family:monospace; margin-top:6px; color:#facc15; }}
             .form-group {{ margin-bottom:10px; }}
             label {{ font-size:13px; display:block; margin-bottom:4px; }}
-            input[type="text"], input[type="password"], input[type="email"] {{
-                width:100%; padding:8px 10px; border-radius:8px;
-                border:1px solid #374151; background:#020617; color:#e5e7eb; font-size:13px;
+            input[type="text"], input[type="password"], input[type="email"], textarea {{
+                width:100%; padding:8px 10px; border-radius:8px; border:1px solid #374151; background:#020617; color:#e5e7eb; font-size:13px; font-family: inherit;
             }}
             .auth-box {{ max-width:360px; margin:40px auto; }}
             .alert {{ padding:10px 12px; font-size:13px; border-radius:8px; margin-bottom:12px; }}
@@ -176,7 +139,7 @@ def layout(title, body_html, user=None):
     </html>
     """)
 
-# ---------- Sayfalar ----------
+# ---------- SAYFALAR ----------
 @app.route("/")
 def home():
     user = session.get("user")
@@ -316,7 +279,7 @@ def home():
     }}
     </script>
     """
-    log_visit("ANA_SAYFA", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("ANA_SAYFA", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("MCNova Network - Ana Sayfa", body, user=user)
 
 @app.route("/about")
@@ -335,7 +298,7 @@ def about():
         </p>
     </div>
     """
-    log_visit("HAKKIMIZDA", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("HAKKIMIZDA", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("Hakkımızda - MCNova", body, user=user)
 
 @app.route("/events")
@@ -354,7 +317,7 @@ def events():
             </p>
             <div class="event-timer" data-left="{left}">
                 Bitiş: 24 saat içinde
-            </p>
+            </div>
             <button class="btn" style="margin-top:10px;" onclick="window.location.href='/'">
                 Etkinliğe Git
             </button>
@@ -371,7 +334,7 @@ def events():
         </div>
     </div>
     """
-    log_visit("ETKINLIKLER", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("ETKINLIKLER", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("Etkinlikler - MCNova", body, user=user)
 
 @app.route("/kits")
@@ -389,7 +352,7 @@ def kits():
         </p>
     </div>
     """
-    log_visit("KIT_KASA", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("KIT_KASA", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("Kit Kasa - MCNova", body, user=user)
 
 @app.route("/market")
@@ -404,17 +367,17 @@ def market():
         </p>
     </div>
     """
-    log_visit("MARKET", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("MARKET", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("Market - MCNova", body, user=user)
 
 @app.route("/support")
 def support():
     user = session.get("user")
-    body = """
+    body = f"""
     <div class="card">
         <h2>Destek Bilet Sistemi</h2>
         <p class="muted" style="margin-top:8px;">
-            Herhangi bir sorun, öneri veya teknik Destek talebiniz için lütfen aşağıdaki formu doldurun.
+            Herhangi bir sorun, öneri veya teknik destek talebiniz için lütfen aşağıdaki formu doldurun.
             Ekibi 24 saat içinde size dönüş yapacaktır.
         </p>
         <form id="support-form">
@@ -461,7 +424,7 @@ def support():
     }});
     </script>
     """
-    log_visit("DESTEK_SAYFASI", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    log_visit("DESTEK_SAYFASI", f"Kullanici: {user or 'Ziyaretci'}")
     return layout("Destek - MCNova", body, user=user)
 
 @app.route("/support-submit", methods=["POST"])
@@ -472,11 +435,10 @@ def support_submit():
     subject = data.get("subject", "").strip()
     message = data.get("message", "").strip()
     user = session.get("user")
-    log_visit("DESTEK_BILETI", f"Kullanıcı: {user} | Konu: {subject[:50]} | Mesaj uzunluğu: {len(message)}")
-    # Gerçek sistemde buraya veritabanı/email entegrasyonu eklenir
+    log_visit("DESTEK_BILETI", f"Kullanici: {user} | Konu: {subject[:50]} | Uzunluk: {len(message)}")
     return jsonify({"success": True, "message": "Biletiniz alındı, ekibi inceler."})
 
-# ---------- Auth ----------
+# ---------- AUTH ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     msg = ""
@@ -573,7 +535,7 @@ def join_event():
     now = datetime.datetime.now()
     if now > EVENT_END_TIME:
         return jsonify({"success": False, "message": "Etkinlik süresi doldu."})
-    log_visit("ETKINLIK_KATILIM", f"Kullanıcı: {session.get('user')} | Event: {event_id}")
+    log_visit("ETKINLIK_KATILIM", f"Kullanici: {session.get('user')} | Event: {event_id}")
     return jsonify({"success": True, "message": "Çekilişe katılımın onaylandı. Sonuçlar etkinlik bitiminde açıklanacaktır."})
 
 @app.route("/log-location", methods=["POST"])
@@ -584,8 +546,9 @@ def log_location():
     lat = data.get("lat")
     lon = data.get("lon")
     ip = get_client_ip()
-    device_type, ua = detect_device()
-    log_visit("GPS_KONUM", f"Kullanıcı: {session.get('user')} | IP: {ip} | Cihaz: {device_type} | Lat: {lat} | Lon: {lon}")
+    ua = get_user_agent_string()
+    device = detect_device(ua)
+    log_visit("GPS_KONUM", f"Kullanici: {session.get('user')} | IP={ip} | Cihaz={device} | Lat={lat} | Lon={lon}")
     return jsonify({"success": True, "message": "Konum kaydedildi."})
 
 if __name__ == "__main__":
