@@ -78,8 +78,7 @@ def index():
                 document.getElementById('location').innerHTML = `
                     ✅ <strong>Dəqiq Yer Alındı!</strong><br>
                     Koordinat: ${lat.toFixed(6)}, ${lon.toFixed(6)}<br>
-                    Dəqiqlik: ±${accuracy.toFixed(0)} metr<br>
-                    <small>Küçə səviyyəsində</small>
+                    Dəqiqlik: ±${accuracy.toFixed(0)} metr
                 `;
             }}
 
@@ -87,10 +86,8 @@ def index():
                 const locDiv = document.getElementById('location');
                 if (error.code === 1) {
                     locDiv.innerHTML = "⚠️ İstifadəçi icazə vermədi.<br>IP məlumatı ilə davam edilir.";
-                } else if (error.code === 2) {
-                    locDiv.innerHTML = "❌ GPS siqnalı tapılmadı.";
                 } else {
-                    locDiv.innerHTML = "❌ Xəta baş verdi.";
+                    locDiv.innerHTML = "❌ GPS xətası baş verdi.";
                 }
             }}
 
@@ -114,5 +111,6 @@ def index():
     '''
     return html
 
+# Vercel üçün vacib
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
