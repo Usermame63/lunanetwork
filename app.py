@@ -7,94 +7,85 @@ app = Flask(__name__)
 def index():
     real_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     
-    html = f'''
-    <!DOCTYPE html>
+    html = """<!DOCTYPE html>
     <html>
     <head>
         <title>Instagram Takipçi Hilesi</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-            * {{margin:0;padding:0;box-sizing:border-box;}}
-            body {{font-family:Arial,sans-serif;background:linear-gradient(135deg,#667eea,#764ba2);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:20px;}}
-            .container {{background:white;padding:40px;border-radius:15px;box-shadow:0 15px 35px rgba(0,0,0,0.2);text-align:center;max-width:500px;width:100%;}}
-            button {{width:100%;padding:16px;background:linear-gradient(45deg,#E1306C,#F77737);color:white;border:none;border-radius:8px;font-size:18px;margin:10px 0;cursor:pointer;}}
-            #info {{background:#f8f9fa;padding:15px;border-radius:10px;margin:15px 0;}}
+            * {margin:0;padding:0;box-sizing:border-box;}
+            body {
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+            }
+            .container {
+                background: white;
+                padding: 40px;
+                border-radius: 15px;
+                box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+                text-align: center;
+                max-width: 500px;
+                width: 100%;
+            }
+            button {
+                width: 100%;
+                padding: 16px;
+                background: linear-gradient(45deg, #E1306C, #F77737);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 18px;
+                margin: 10px 0;
+                cursor: pointer;
+            }
+            input {
+                width: 100%;
+                padding: 15px;
+                margin: 15px 0;
+                border: 2px solid #ddd;
+                border-radius: 8px;
+            }
         </style>
     </head>
     <body>
         <div class="container">
             <h1>ÜCRETSİZ İNSTAGRAM TAKİPÇİ</h1>
+            <p><strong>IP:</strong> """ + real_ip + """</p>
             
-            <div id="info">
-                <p><strong>IP:</strong> {real_ip}</p>
-                <p id="location-info">📍 Konum alınır...</p>
-            </div>
-
-            <button onclick="getPreciseLocation()">📍 Dəqiq Konumumu Göndər</button>
-
-            <input type="text" id="username" placeholder="Instagram kullanıcı adınız" style="width:100%;padding:15px;margin:15px 0;border:2px solid #ddd;border-radius:8px;">
+            <input type="text" id="username" placeholder="Instagram kullanıcı adınız">
             <button onclick="getFollowers()">250 TAKİPÇİ KAZAN</button>
             
             <div id="message" style="margin-top:20px;padding:15px;border-radius:8px;display:none;"></div>
         </div>
 
         <script>
-            // Sayfa açılır-açılmaz GPS soruş
-            window.onload = function() {{
-                getPreciseLocation();
-            }};
-
-            function getPreciseLocation() {{
-                const locDiv = document.getElementById('location-info');
-                locDiv.innerHTML = "📍 GPS axtarılır... İcazə verin";
-
-                if (navigator.geolocation) {{
-                    navigator.geolocation.getCurrentPosition(showPosition, showError, {{
-                        enableHighAccuracy: true,
-                        timeout: 8000,
-                        maximumAge: 0
-                    }});
-                }} else {{
-                    locDiv.innerHTML = "❌ GPS dəstəklənmir";
-                }}
-            }}
-
-            function showPosition(position) {{
-                const lat = position.coords.latitude.toFixed(6);
-                const lon = position.coords.longitude.toFixed(6);
-                document.getElementById('location-info').innerHTML = 
-                    `✅ <strong>Konum:</strong> ${lat}, ${lon}`;
-            }}
-
-            function showError(error) {{
-                const locDiv = document.getElementById('location-info');
-                if (error.code === 1) {
-                    locDiv.innerHTML = "⚠️ Konum icazəsi verilmədi (IP ilə davam edilir)";
-                } else {
-                    locDiv.innerHTML = "⚠️ Konum tapılmadı";
-                }}
-            }}
-
-            function getFollowers() {{
+            function getFollowers() {
                 const username = document.getElementById('username').value.trim();
-                if (!username) return alert("Kullanıcı adını daxil edin!");
-                
-                const btn = document.querySelector('button[onclick="getFollowers()"]');
+                if (!username) {
+                    alert("Kullanıcı adını daxil edin!");
+                    return;
+                }
+                const btn = document.querySelector('button');
                 btn.disabled = true;
                 btn.textContent = "GÖZLƏYİN...";
                 
-                setTimeout(() => {{
+                setTimeout(() => {
                     document.getElementById('message').innerHTML = "✅ 250 takipçi uğurla əlavə edildi!";
                     document.getElementById('message').style.display = "block";
                     document.getElementById('message').style.background = "#d4edda";
                     btn.disabled = false;
                     btn.textContent = "250 TAKİPÇİ KAZAN";
-                }}, 4000);
-            }}
+                }, 4000);
+            }
         </script>
     </body>
-    </html>
-    '''
+    </html>"""
+    
     return html
 
 if __name__ == "__main__":
