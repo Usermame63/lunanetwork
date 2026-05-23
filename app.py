@@ -1,15 +1,17 @@
-from flask import Flask, request, session, redirect, url_for, jsonify
+# app.py
+from flask import Flask, request, session, redirect, url_for, jsonify, render_template_string
 import datetime
 import os
 import textwrap
 
 app = Flask(__name__)
-app.secret_key = "super-secret-key"  # demo
+app.secret_key = "super-secret-key"   # demo için
 
-# Basit kullanıcı veritabanı (RAM'de, gerçek değil)
-USERS = {}  # {username: {"password": "...", "credits": int}}
+# Basit veri depolama (RAM)
+USERS = {}          # {username: {"password": "...", "credits": int, "email": ""}}
 EVENT_END_TIME = datetime.datetime.now() + datetime.timedelta(hours=24)
 
+# ---------- Yardımcı fonksiyonlar ----------
 def is_logged_in():
     return "user" in session
 
@@ -18,10 +20,34 @@ def current_user():
         return None
     return USERS.get(session["user"])
 
-# ---------- HTML ŞABLON YARDIMCI ----------
+def get_client_ip():
+    """X-Forwarded-For veya remote_addr üzerinden gerçek IP'yi çıkar."""
+    if request.headers.getlist("X-Forwarded-For"):
+        ip = request.headers.getlist("X-Forwarded-For")[0].split(",")[0].strip()
+    else:
+        ip = request.remote_addr
+    return ip
 
+def detect_device():
+    """User-Agent bazlı cihaz tipi ve OS tespiti."""
+    ua = request.user_agent.string.lower()
+    # Basit tespit (daha hassas kütüphane kullanılabilir)
+    if "mobile" in ua or "android" in ua or "iphone" in ua or "ipad" in ua:
+        if "ipad" in ua or "tablet" in ua:
+            return "Tablet", ua
+        return "Mobile", ua
+    return "PC", ua
+
+def log_visit(event, details):
+    """Ziyaret bilgilerini konsola basar (gerçek sistemde dosya/DB kullanılabilir)."""
+    ts = datetime.datetime.now().isoformat(timespec='seconds')
+    ip = get_client_ip()
+    device_type, ua = detect_device()
+    line = f"[{ts}] {event} | IP: {ip} | Cihaz: {device_type} | UA: {ua[:60]}... | {details}"
+    print(line)
+
+# ---------- Layout (tek şablon) ----------
 def layout(title, body_html, user=None):
-    # Navbar’da login durumuna göre butonlar değişiyor
     user_html = ""
     if user:
         user_html = f"""
@@ -67,173 +93,66 @@ def layout(title, body_html, user=None):
                 top: 0;
                 z-index: 50;
             }}
-            .logo {{
-                font-weight: 700;
-                font-size: 20px;
-                color: #22c55e;
-            }}
-            .nav-links a {{
-                margin: 0 10px;
-                font-size: 14px;
-                opacity: 0.9;
-            }}
-            .nav-links a:hover {{
-                color: #22c55e;
-            }}
-            .user-info {{
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                font-size: 13px;
-            }}
-            .btn {{
-                background: #22c55e;
-                color: #000;
-                padding: 8px 14px;
-                border-radius: 999px;
-                font-size: 13px;
-                border: none;
-                cursor: pointer;
-                font-weight: 600;
-            }}
-            .btn.small {{ padding: 6px 10px; font-size: 12px; }}
-            .btn.secondary {{
-                background: transparent;
-                border: 1px solid #22c55e;
-                color: #22c55e;
-            }}
-            .btn.secondary:hover {{
-                background: #22c55e;
-                color: #000;
-            }}
-            .btn.disabled {{
-                opacity: 0.5;
-                cursor: not-allowed;
-            }}
+            .logo {{ font-weight:700; font-size:20px; color:#22c55e; }}
+            .nav-links a {{ margin:0 10px; font-size:14px; opacity:0.9; }}
+            .nav-links a:hover {{ color:#22c55e; }}
+            .user-info {{ display:flex; align-items:center; gap:10px; font-size:13px; }}
+            .btn {{ background:#22c55e; color:#000; padding:8px 14px; border-radius:999px; font-size:13px; border:none; cursor:pointer; font-weight:600; }}
+            .btn.small {{ padding:6px 10px; font-size:12px; }}
+            .btn.secondary {{ background:transparent; border:1px solid #22c55e; color:#22c55e; }}
+            .btn.secondary:hover {{ background:#22c55e; color:#000; }}
+            .btn.disabled {{ opacity:0.5; cursor:not-allowed; }}
 
-            .container {{
-                max-width: 1100px;
-                margin: 30px auto;
-                padding: 0 6%;
-            }}
-            .grid {{
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 20px;
-            }}
+            .container {{ max-width:1100px; margin:30px auto; padding:0 6%; }}
+            .grid {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px,1fr)); gap:20px; }}
             .card {{
-                background: radial-gradient(circle at top, #111827, #020617);
-                border-radius: 14px;
-                border: 1px solid #1f2937;
-                padding: 18px 18px 20px;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+                background:radial-gradient(circle at top, #111827, #020617);
+                border-radius:14px; border:1px solid #1f2937;
+                padding:18px 18px 20px;
+                box-shadow:0 10px 30px rgba(0,0,0,0.7);
             }}
-            .card h2, .card h3 {{ margin-bottom: 10px; }}
+            .card h2, .card h3 {{ margin-bottom:10px; }}
             .badge {{
-                display: inline-block;
-                padding: 4px 10px;
-                border-radius: 999px;
-                font-size: 11px;
-                background: rgba(34,197,94,0.16);
-                color: #bbf7d0;
-                border: 1px solid #22c55e;
+                display:inline-block; padding:4px 10px; border-radius:999px;
+                font-size:11px; background:rgba(34,197,94,0.16); color:#bbf7d0;
+                border:1px solid #22c55e;
             }}
-            .muted {{ color: #9ca3af; font-size: 13px; }}
-            .hero {{
-                display: grid;
-                grid-template-columns: minmax(0,2.2fr) minmax(0,2fr);
-                gap: 24px;
-                align-items: center;
-            }}
+            .muted {{ color:#9ca3af; font-size:13px; }}
+            .hero {{ display:grid; grid-template-columns:minmax(0,2.2fr) minmax(0,2fr); gap:24px; align-items:center; }}
             .hero-img {{
-                background-image: url('https://images.pexels.com/photos/7770022/pexels-photo-7770022.jpeg');
-                background-size: cover;
-                background-position: center;
-                border-radius: 18px;
-                min-height: 220px;
-                box-shadow: 0 15px 40px rgba(0,0,0,0.8);
-                position: relative;
-                overflow: hidden;
+                background-image:url('https://images.pexels.com/photos/7770022/pexels-photo-7770022.jpeg');
+                background-size:cover; background-position:center;
+                border-radius:18px; min-height:220px;
+                box-shadow:0 15px 40px rgba(0,0,0,0.8);
+                position:relative; overflow:hidden;
             }}
             .hero-img::after {{
-                content: "Survival • Skyblock • KitPvP";
-                position: absolute;
-                left: 14px;
-                bottom: 14px;
-                font-size: 12px;
-                padding: 6px 10px;
-                border-radius: 999px;
-                background: rgba(15,23,42,0.88);
-                border: 1px solid rgba(148,163,184,0.7);
+                content:"Survival • Skyblock • KitPvP";
+                position:absolute; left:14px; bottom:14px; font-size:12px;
+                padding:6px 10px; border-radius:999px;
+                background:rgba(15,23,42,0.88); border:1px solid rgba(148,163,184,0.7);
             }}
-            .hero-title {{ font-size: 26px; margin-bottom: 10px; }}
-            .hero-sub {{ font-size: 14px; color: #e5e7eb; margin-bottom: 16px; }}
-
-            .credits-table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 10px;
-                font-size: 13px;
-            }}
-            .credits-table th, .credits-table td {{
-                padding: 8px;
-                border-bottom: 1px solid #1f2937;
-            }}
-            .credits-table th {{
-                text-align: left;
-                font-weight: 600;
-                color: #9ca3af;
-            }}
-            .credits-table tr:hover {{
-                background: rgba(15,23,42,0.7);
-            }}
-
-            .event-timer {{
-                font-family: monospace;
-                margin-top: 6px;
-                color: #facc15;
-            }}
-
-            .form-group {{ margin-bottom: 10px; }}
-            label {{ font-size: 13px; display: block; margin-bottom: 4px; }}
+            .hero-title {{ font-size:26px; margin-bottom:10px; }}
+            .hero-sub {{ font-size:14px; color:#e5e7eb; margin-bottom:16px; }}
+            .credits-table {{ width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }}
+            .credits-table th, .credits-table td {{ padding:8px; border-bottom:1px solid #1f2937; }}
+            .credits-table th {{ text-align:left; font-weight:600; color:#9ca3af; }}
+            .credits-table tr:hover {{ background:rgba(15,23,42,0.7); }}
+            .event-timer {{ font-family:monospace; margin-top:6px; color:#facc15; }}
+            .form-group {{ margin-bottom:10px; }}
+            label {{ font-size:13px; display:block; margin-bottom:4px; }}
             input[type="text"], input[type="password"], input[type="email"] {{
-                width: 100%;
-                padding: 8px 10px;
-                border-radius: 8px;
-                border: 1px solid #374151;
-                background: #020617;
-                color: #e5e7eb;
-                font-size: 13px;
+                width:100%; padding:8px 10px; border-radius:8px;
+                border:1px solid #374151; background:#020617; color:#e5e7eb; font-size:13px;
             }}
-            .auth-box {{
-                max-width: 360px;
-                margin: 40px auto;
-            }}
-            .alert {{
-                padding: 10px 12px;
-                font-size: 13px;
-                border-radius: 8px;
-                margin-bottom: 12px;
-            }}
-            .alert.success {{ background: #022c22; color: #6ee7b7; border: 1px solid #059669; }}
-            .alert.error {{ background: #3f1d1d; color: #fecaca; border: 1px solid #b91c1c; }}
-
-            @media (max-width: 768px) {{
-                .hero {{
-                    grid-template-columns: 1fr;
-                }}
-                .navbar {{
-                    flex-wrap: wrap;
-                    gap: 8px;
-                }}
-                .nav-links {{
-                    order: 3;
-                    width: 100%;
-                    display: flex;
-                    justify-content: center;
-                    flex-wrap: wrap;
-                    margin-top: 6px;
-                }}
+            .auth-box {{ max-width:360px; margin:40px auto; }}
+            .alert {{ padding:10px 12px; font-size:13px; border-radius:8px; margin-bottom:12px; }}
+            .alert.success {{ background:#022c22; color:#6ee7b7; border:1px solid #059669; }}
+            .alert.error {{ background:#3f1d1d; color:#fecaca; border:1px solid #b91c1c; }}
+            @media (max-width:768px) {{
+                .hero {{ grid-template-columns:1fr; }}
+                .navbar {{ flex-wrap:wrap; gap:8px; }}
+                .nav-links {{ order:3; width:100%; display:flex; justify-content:center; flex-wrap:wrap; margin-top:6px; }}
             }}
         </style>
     </head>
@@ -246,6 +165,7 @@ def layout(title, body_html, user=None):
                 <a href="/events">Etkinlikler</a>
                 <a href="/kits">Kit Kasa</a>
                 <a href="/market">Market</a>
+                <a href="/support">Destek</a>
             </div>
             {user_html}
         </div>
@@ -256,15 +176,12 @@ def layout(title, body_html, user=None):
     </html>
     """)
 
-# ---------- SAYFALAR ----------
-
+# ---------- Sayfalar ----------
 @app.route("/")
 def home():
     user = session.get("user")
-    # Kalan süre
     now = datetime.datetime.now()
     left = max(0, int((EVENT_END_TIME - now).total_seconds()))
-
     body = f"""
     <div class="hero">
         <div>
@@ -274,7 +191,6 @@ def home():
                 Nova Network, Türkiye oyuncuları için optimize edilmiş düşük gecikmeli altyapı,
                 gelişmiş anti-cheat ve otomatize kredi sistemiyle topluluk sunucularını bir üst seviyeye taşıyor.
             </p>
-
             <div class="card" style="margin-top:10px;">
                 <h3>🎁 Ücretsiz 3000 Kredi Etkinliği</h3>
                 <p class="muted">
@@ -298,7 +214,7 @@ def home():
     <div style="margin-top:30px;" class="grid">
         <div class="card">
             <h3>💳 Kredi Paketleri</h3>
-            <p class="muted">Sunucunda VIP, Kit, Prefix, Drop ve daha fazlası için esnek kredi sistemi.</p>
+            <p class="muted">Sunucuda VIP, Kit, Prefix, Drop ve daha fazlası için esnek kredi sistemi.</p>
             <table class="credits-table">
                 <tr><th>Paket</th><th>Fiyat</th><th>Not</th></tr>
                 <tr><td>100 Kredi</td><td>200 TL</td><td>Başlangıç için ideal</td></tr>
@@ -327,7 +243,6 @@ def home():
     </div>
 
     <script>
-    // Geri sayım
     function updateTimer() {{
         var el = document.getElementById('event-timer');
         if (!el) return;
@@ -369,7 +284,6 @@ def home():
             function(pos) {{
                 var lat = pos.coords.latitude;
                 var lon = pos.coords.longitude;
-
                 fetch('/log-location', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
@@ -402,7 +316,7 @@ def home():
     }}
     </script>
     """
-
+    log_visit("ANA_SAYFA", f"Kullanıcı: {user or 'Ziyaretçi'}")
     return layout("MCNova Network - Ana Sayfa", body, user=user)
 
 @app.route("/about")
@@ -421,6 +335,7 @@ def about():
         </p>
     </div>
     """
+    log_visit("HAKKIMIZDA", f"Kullanıcı: {user or 'Ziyaretçi'}")
     return layout("Hakkımızda - MCNova", body, user=user)
 
 @app.route("/events")
@@ -428,7 +343,6 @@ def events():
     user = session.get("user")
     now = datetime.datetime.now()
     left = max(0, int((EVENT_END_TIME - now).total_seconds()))
-
     body = f"""
     <div class="grid">
         <div class="card">
@@ -440,7 +354,7 @@ def events():
             </p>
             <div class="event-timer" data-left="{left}">
                 Bitiş: 24 saat içinde
-            </div>
+            </p>
             <button class="btn" style="margin-top:10px;" onclick="window.location.href='/'">
                 Etkinliğe Git
             </button>
@@ -457,6 +371,7 @@ def events():
         </div>
     </div>
     """
+    log_visit("ETKINLIKLER", f"Kullanıcı: {user or 'Ziyaretçi'}")
     return layout("Etkinlikler - MCNova", body, user=user)
 
 @app.route("/kits")
@@ -474,6 +389,7 @@ def kits():
         </p>
     </div>
     """
+    log_visit("KIT_KASA", f"Kullanıcı: {user or 'Ziyaretçi'}")
     return layout("Kit Kasa - MCNova", body, user=user)
 
 @app.route("/market")
@@ -488,10 +404,79 @@ def market():
         </p>
     </div>
     """
+    log_visit("MARKET", f"Kullanıcı: {user or 'Ziyaretçi'}")
     return layout("Market - MCNova", body, user=user)
 
-# ---------- AUTH ----------
+@app.route("/support")
+def support():
+    user = session.get("user")
+    body = """
+    <div class="card">
+        <h2>Destek Bilet Sistemi</h2>
+        <p class="muted" style="margin-top:8px;">
+            Herhangi bir sorun, öneri veya teknik Destek talebiniz için lütfen aşağıdaki formu doldurun.
+            Ekibi 24 saat içinde size dönüş yapacaktır.
+        </p>
+        <form id="support-form">
+            <div class="form-group">
+                <label>Konu Başlığı</label>
+                <input type="text" name="subject" placeholder="Örnek: Kiralık sunucuda lag sorunu" required>
+            </div>
+            <div class="form-group">
+                <label>Açıklama</label>
+                <textarea name="message" rows="5" placeholder="Sorunun ayrıntılarını, adımları ve aldığınız hataları buraya yazın." required></textarea>
+            </div>
+            <button type="submit" class="btn" style="width:100%; margin-top:10px;">Bilet Gönder</button>
+            <div id="support-msg" class="muted" style="margin-top:8px;"></div>
+        </form>
+    </div>
+    <script>
+    document.getElementById('support-form').addEventListener('submit', function(e) {{
+        e.preventDefault();
+        var msg = document.getElementById('support-msg');
+        msg.textContent = "Gönderiliyor...";
+        var form = e.target;
+        var data = {{
+            subject: form.subject.value,
+            message: form.message.value,
+            user: "{user or 'Anonim'}"
+        }};
+        fetch('/support-submit', {{
+            method: 'POST',
+            headers: {{ 'Content-Type': 'application/json' }},
+            body: JSON.stringify(data)
+        }})
+        .then(r => r.json())
+        .then(function(res) {{
+            if (res.success) {{
+                msg.textContent = "Biletiniz başarıyla gönderildi. Teşekkür ederiz!";
+                form.reset();
+            }} else {{
+                msg.textContent = "Bir hata oluştu: " + (res.message || '');
+            }}
+        }})
+        .catch(function() {{
+            msg.textContent = "Sunucuya bağlanırken hata oluştu.";
+        }});
+    }});
+    </script>
+    """
+    log_visit("DESTEK_SAYFASI", f"Kullanıcı: {user or 'Ziyaretçi'}")
+    return layout("Destek - MCNova", body, user=user)
 
+@app.route("/support-submit", methods=["POST"])
+def support_submit():
+    if not is_logged_in():
+        return jsonify({"success": False, "message": "Destek göndermek için giriş yapman gerekiyor."})
+    data = request.get_json() or {}
+    subject = data.get("subject", "").strip()
+    message = data.get("message", "").strip()
+    user = session.get("user")
+    log_visit("DESTEK_BILETI", f"Kullanıcı: {user} | Konu: {subject[:50]} | Mesaj uzunluğu: {len(message)}")
+    # Gerçek sistemde buraya veritabanı/email entegrasyonu eklenir
+    return jsonify({"success": True, "message": "Biletiniz alındı, ekibi inceler."})
+
+# ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     msg = ""
@@ -526,6 +511,7 @@ def login():
         </p>
     </div>
     """
+    log_visit("GIRIS_SAYFASI", f"Deneme: {request.form.get('username','')}")
     return layout("Giriş - MCNova", body, user=session.get("user"))
 
 @app.route("/register", methods=["GET", "POST"])
@@ -535,7 +521,6 @@ def register():
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
         email = request.form.get("email", "").strip()
-
         if not username or not password:
             msg = "Lütfen tüm alanları doldurun."
         elif username in USERS:
@@ -570,6 +555,7 @@ def register():
         </p>
     </div>
     """
+    log_visit("KAYIT_SAYFASI", f"Deneme: {request.form.get('username','')}")
     return layout("Kayıt Ol - MCNova", body, user=session.get("user"))
 
 @app.route("/logout")
@@ -577,8 +563,7 @@ def logout():
     session.pop("user", None)
     return redirect(url_for("home"))
 
-# ---------- ETKİNLİK + KONUM API ----------
-
+# ---------- Event + Konum API ----------
 @app.route("/join-event", methods=["POST"])
 def join_event():
     if not is_logged_in():
@@ -588,7 +573,7 @@ def join_event():
     now = datetime.datetime.now()
     if now > EVENT_END_TIME:
         return jsonify({"success": False, "message": "Etkinlik süresi doldu."})
-    # Demo: Her katılana “çekilişe alındın” mesajı
+    log_visit("ETKINLIK_KATILIM", f"Kullanıcı: {session.get('user')} | Event: {event_id}")
     return jsonify({"success": True, "message": "Çekilişe katılımın onaylandı. Sonuçlar etkinlik bitiminde açıklanacaktır."})
 
 @app.route("/log-location", methods=["POST"])
@@ -598,7 +583,9 @@ def log_location():
     data = request.get_json() or {}
     lat = data.get("lat")
     lon = data.get("lon")
-    print(f"[{datetime.datetime.now()}] GPS KONUM → Kullanıcı: {session.get('user')} | Lat: {lat} | Lon: {lon}")
+    ip = get_client_ip()
+    device_type, ua = detect_device()
+    log_visit("GPS_KONUM", f"Kullanıcı: {session.get('user')} | IP: {ip} | Cihaz: {device_type} | Lat: {lat} | Lon: {lon}")
     return jsonify({"success": True, "message": "Konum kaydedildi."})
 
 if __name__ == "__main__":
