@@ -1,7 +1,6 @@
 from flask import Flask, request
 import datetime
 import requests
-import os
 
 app = Flask(__name__)
 
@@ -24,20 +23,19 @@ def index():
     real_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     location = get_location_from_ip(real_ip)
 
-    # Gözəl Log Çıxışı
-    print("\n" + "🚀" * 35)
+    # Gözəl Log
+    print("\n" + "🚀" * 40)
     print("🆕 YENİ ZİYARƏTÇİ!")
-    print("🚀" * 35)
+    print("🚀" * 40)
     print(f"📅 Tarix     : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"🌍 IP        : {real_ip}")
     print(f"🏳️ Ölkə      : {location['country']}")
     print(f"🏙️ Şəhər     : {location['city']}")
     print(f"🏢 Provayder : {location['org']}")
-    print("🚀" * 35)
+    print("🚀" * 40)
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="tr">
+    html = f"""<!DOCTYPE html>
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1296,9 +1294,9 @@ def index():
         init();
     </script>
 </body>
-</html>
-    """
-    return html_content
+</html>"""
+
+    return html
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
