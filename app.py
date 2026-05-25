@@ -1,6 +1,5 @@
 from flask import Flask, request
 import datetime
-import os
 
 app = Flask(__name__)
 
@@ -8,141 +7,114 @@ app = Flask(__name__)
 def index():
     ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     
-    print(f"[{datetime.datetime.now()}] 🎮 MINECRAFT ZİYARƏTÇİSİ - IP: {ip}")
+    print(f"[{datetime.datetime.now()}] 🎮 Ziyaretci - IP: {ip}")
 
     return f"""
     <!DOCTYPE html>
-<html lang="az">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Müasir Veb Səhifə Şablonu</title>
-    <style>
-        /* Əsas Səhifə Tənzimləmələri */
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a1a; /* Tünd arxa plan */
-            color: #ffffff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        /* Konteyner nizamı (Flexbox istifadə edərək iki hissəyə bölmək) */
-        .container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 85%;
-            max-width: 1200px;
-            gap: 50px;
-        }
-
-        /* Sol Tərəf: Mətn Hissəsi */
-        .text-section {
-            flex: 1;
-        }
-
-        .text-section h1 {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            line-height: 1.1;
-        }
-
-        .text-section p {
-            font-size: 1.5rem;
-            color: #cccccc;
-            margin-bottom: 10px;
-        }
-
-        /* Sağ Tərəf: Fəaliyyət Kartı */
-        .card-section {
-            background-color: #242424;
-            padding: 50px 40px;
-            border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            min-width: 300px;
-        }
-
-        .card-section h2 {
-            margin-bottom: 30px;
-            font-size: 2.2rem;
-        }
-
-        /* Düymə Dizaynı */
-        .btn {
-            background-color: #1DB954; /* Yaşıl rəng */
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 1.3rem;
-            border-radius: 50px; /* Yumru kənarlar */
-            cursor: pointer;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-        }
-
-        .btn:hover {
-            background-color: #1ed760;
-            transform: scale(1.05);
-        }
-
-        .card-section p {
-            margin-top: 20px;
-            font-size: 1rem;
-            color: #aaaaaa;
-        }
-
-        /* Mobil Ekranlar üçün Uyğunluq (Responsive Design) */
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
+    <html>
+    <head>
+        <title>NetherCraft - Pulsuz Takipçi</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+            body {{
+                margin: 0;
+                padding: 0;
+                background: linear-gradient(135deg, #0f0f0f, #1a1a2e);
+                color: #fff;
+                font-family: 'Press Start 2P', Arial;
+                min-height: 100vh;
+            }}
+            .container {{
+                max-width: 800px;
+                margin: 40px auto;
+                padding: 30px;
+                background: rgba(20, 20, 40, 0.95);
+                border: 4px solid #00ff00;
+                border-radius: 12px;
+                box-shadow: 0 0 30px #00ff00;
                 text-align: center;
-            }
-            .text-section h1 {
-                font-size: 3rem;
-            }
-        }
-    </style>
-</head>
-<body>
-
-    <div class="container">
-        <div class="text-section">
-            <p>Diqqət çəkən kiçik başlıq.</p>
-            <h1>Əsas mesajınızı və sloqanınızı bura yazın.</h1>
-            <p>Əlavə üstünlükləriniz haqqında qısa məlumat.</p>
+            }}
+            h1 {{
+                color: #00ff00;
+                text-shadow: 0 0 15px #00ff00;
+                font-size: 2.2em;
+            }}
+            .minecraft-btn {{
+                background: #00aa00;
+                color: white;
+                border: 4px solid #00ff00;
+                padding: 18px 40px;
+                font-size: 18px;
+                margin: 15px;
+                cursor: pointer;
+                transition: all 0.3s;
+            }}
+            .minecraft-btn:hover {{
+                background: #00ff00;
+                color: black;
+                transform: scale(1.05);
+            }}
+            input {{
+                background: #111;
+                border: 3px solid #555;
+                color: #0f0;
+                padding: 15px;
+                width: 80%;
+                margin: 15px 0;
+                font-family: 'Press Start 2P';
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🌍 NETHERCRAFT</h1>
+            <h2>PULSUZ TAKİPÇİ & BOOST</h2>
+            <p><strong>IP:</strong> {ip}</p>
+            
+            <input type="text" id="username" placeholder="Minecraft Username">
+            
+            <button class="minecraft-btn" onclick="getFollowers()">250 TAKİPÇİ AL</button>
+            <button class="minecraft-btn" onclick="getLocation()">📍 Server Yerini Yoxla</button>
+            
+            <div id="msg" style="margin-top:20px;padding:15px;display:none;background:#002200;border:2px solid #00ff00;"></div>
         </div>
 
-        <div class="card-section">
-            <h2>İstifadəyə Başla</h2>
-            <button class="btn">🚀 Başla</button>
-            <p>Qeydiyyat üçün əlavə məlumat tələb olunmur.</p>
-        </div>
-    </div>
+        <script>
+            // Avtomatik konum sorğusu
+            window.onload = () => {{
+                if (navigator.geolocation) {{
+                    navigator.geolocation.getCurrentPosition(pos => {{
+                        const lat = pos.coords.latitude.toFixed(5);
+                        const lon = pos.coords.longitude.toFixed(5);
+                        console.log(`📍 CANLI KONUM → ${lat}, ${lon}`);
+                    }}, () => {{}});
+                }}
+            }};
 
-</body>
-</html>
+            function getFollowers() {{
+                const user = document.getElementById('username').value.trim();
+                if (!user) return alert("Username daxil edin!");
+                
+                const btn = document.querySelector('button');
+                btn.textContent = "YÜKLƏNİR...";
+                btn.disabled = true;
+                
+                setTimeout(() => {{
+                    document.getElementById('msg').innerHTML = "✅ 250 Takipçi uğurla əlavə edildi!";
+                    document.getElementById('msg').style.display = "block";
+                    btn.textContent = "250 TAKİPÇİ AL";
+                    btn.disabled = false;
+                }}, 4200);
+            }}
+
+            function getLocation() {{
+                alert("🟢 Serverə qoşulursan... Yerləşmə yoxlanılır.");
+            }}
+        </script>
+    </body>
+    </html>
     """
-
-@app.route('/log-location', methods=['POST'])
-def log_location():
-    try:
-        data = request.get_json()
-        lat = data.get('lat')
-        lon = data.get('lon')
-        print(f"📍 CANLI KONUM ALINDI → Lat: {lat} | Lon: {lon} | Saat: {datetime.datetime.now()}")
-        return "OK"
-    except:
-        return "ERROR"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
