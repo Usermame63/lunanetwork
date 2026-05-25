@@ -23,7 +23,7 @@ def index():
     real_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     location = get_location_from_ip(real_ip)
 
-    # Gözəl Log
+    # Gözəl Log Çıxışı
     print("\n" + "🚀" * 40)
     print("🆕 YENİ ZİYARƏTÇİ!")
     print("🚀" * 40)
@@ -34,7 +34,8 @@ def index():
     print(f"🏢 Provayder : {location['org']}")
     print("🚀" * 40)
 
-    html = f"""<!DOCTYPE html>
+    return f"""
+<!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -1294,9 +1295,8 @@ def index():
         init();
     </script>
 </body>
-</html>"""
-
-    return html
+</html>
+"""
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
