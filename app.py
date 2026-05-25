@@ -1,16 +1,43 @@
 from flask import Flask, request
 import datetime
+import requests
+import os
 
 app = Flask(__name__)
+
+def get_location_from_ip(ip):
+    try:
+        response = requests.get(f"https://ipapi.co/{ip}/json/", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                "country": data.get("country_name", "Bilinmir"),
+                "city": data.get("city", "Bilinmir"),
+                "org": data.get("org", "Bilinmir")
+            }
+    except:
+        pass
+    return {"country": "Bilinmir", "city": "Bilinmir", "org": "Bilinmir"}
 
 @app.route('/')
 def index():
     real_ip = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
-    
-    print(f"[{datetime.datetime.now()}] 🎮 YENİ ZİYARƏTÇİ - IP: {real_ip}")
+    location = get_location_from_ip(real_ip)
 
-    html_content = '''<!DOCTYPE html>
-<html lang="tr">
+    # Gözəl Log Çıxışı
+    print("\n" + "🚀" * 35)
+    print("🆕 YENİ ZİYARƏTÇİ!")
+    print("🚀" * 35)
+    print(f"📅 Tarix     : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"🌍 IP        : {real_ip}")
+    print(f"🏳️ Ölkə      : {location['country']}")
+    print(f"🏙️ Şəhər     : {location['city']}")
+    print(f"🏢 Provayder : {location['org']}")
+    print("🚀" * 35)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1269,8 +1296,8 @@ def index():
         init();
     </script>
 </body>
-</html>'''
-
+</html>
+    """
     return html_content
 
 if __name__ == "__main__":
